@@ -56,9 +56,10 @@ function ai_descriptions_generated_admin_notice() {
     }
 }
 
+// Modify the generate_ai_art_description function
 function generate_ai_art_description($product_id, $override_role_check = false) {
     $product = wc_get_product($product_id);
-    $author_id = $product->get_post()->post_author; // Updated to get_post()
+    $author_id = $product->get_post_data()->post_author; // Updated to get_post()
     $user = get_userdata($author_id);
 
     if (!$override_role_check && !in_array('ai-premium', $user->roles)) {
@@ -75,7 +76,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 
     // Assuming OpenAI API supports image analysis via an image parameter
     $api_key = OPENAI_API_KEY; // Securely stored
-    $api_url = 'https://api.openai.com/v1/images/generations'; // Hypothetical endpoint
+    $api_url = 'https://api.openai.com/v1/chat/completions';
     $headers = array(
         'Content-Type'  => 'application/json',
         'Authorization' => 'Bearer ' . $api_key,
@@ -85,7 +86,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 
     // Construct the request body
     $body_array = array(
-        'model' => 'gpt-4-vision',
+        'model' => 'gpt-4o',
         'prompt' => $prompt_text,
         'image' => $image_url,
         'max_tokens' => 300,
