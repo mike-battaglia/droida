@@ -1,4 +1,12 @@
-<?
+<?php
+/*
+Plugin Name: AI Art Description
+Description: Generates AI descriptions for artworks upon product publishing.
+Version: 1.0
+Author: Sterling Digital
+*/
+
+add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
 
 // Add the custom bulk action
 add_filter('bulk_actions-edit-product', 'register_generate_ai_description_bulk_action');
@@ -48,10 +56,9 @@ function ai_descriptions_generated_admin_notice() {
     }
 }
 
-// Modify the generate_ai_art_description function
 function generate_ai_art_description($product_id, $override_role_check = false) {
     $product = wc_get_product($product_id);
-    $author_id = $product->get_post_data()->post_author;
+    $author_id = $product->get_post()->post_author; // Updated to get_post()
     $user = get_userdata($author_id);
 
     if (!$override_role_check && !in_array('ai-premium', $user->roles)) {
@@ -66,23 +73,30 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
         return false;
     }
 
+    // Assuming OpenAI API supports image analysis via an image parameter
     $api_key = OPENAI_API_KEY; // Securely stored
-    $prompt = "Describe the artwork in this image as it would be described in a gallery showroom.";
-
-    $api_url = 'https://api.openai.com/v1/images:analyze'; // Update to the correct endpoint
+    $api_url = 'https://api.openai.com/v1/images/generations'; // Hypothetical endpoint
     $headers = array(
         'Content-Type'  => 'application/json',
         'Authorization' => 'Bearer ' . $api_key,
     );
 
-    $body = json_encode(array(
-        'prompt'    => $prompt,
-        'image_url' => $image_url,
-    ));
+    $prompt_text = "Describe the artwork in this image as it would be described in a gallery showroom.";
+
+    // Construct the request body
+    $body_array = array(
+        'model' => 'gpt-4-vision',
+        'prompt' => $prompt_text,
+        'image' => $image_url,
+        'max_tokens' => 300,
+    );
+
+    // Log the request body for debugging
+    error_log('AI Art - Body: ' . json_encode($body_array));
 
     $response = wp_remote_post($api_url, array(
         'headers' => $headers,
-        'body'    => $body,
+        'body'    => json_encode($body_array),
         'timeout' => 60,
     ));
 
@@ -94,10 +108,16 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
     $response_body = wp_remote_retrieve_body($response);
     $result = json_decode($response_body, true);
 
-    if (isset($result['description'])) {
-        $ai_description = sanitize_text_field($result['description']);
+    // Log the response for debugging
+    error_log('AI Art - Response: ' . print_r($result, true));
+
+    if (isset($result['choices'][0]['text'])) {
+        $ai_description = sanitize_text_field($result['choices'][0]['text']);
         update_post_meta($product_id, 'ai_description', $ai_description);
         return true;
+    } elseif (isset($result['error'])) {
+        error_log('OpenAI API error: ' . $result['error']['message']);
+        return false;
     } else {
         error_log('OpenAI API did not return a description for product ID ' . $product_id);
         return false;
