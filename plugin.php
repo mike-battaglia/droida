@@ -85,12 +85,27 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
     $prompt_text = "Describe the artwork in this image as it would be described in a gallery showroom.";
 
     // Construct the request body
-    $body_array = array(
-        'model' => 'gpt-4o',
-        'prompt' => $prompt_text,
-        'image' => $image_url,
-        'max_tokens' => 300,
-    );
+	$body_array = array(
+		'model' => 'gpt-4o',
+		'messages' => array(
+			array( // Wrap the message object in an array
+				'role' => 'user',
+				'content' => array(
+					array(
+						'type' => 'text',
+						'text' => $prompt_text,
+					),
+					array(
+						'type' => 'image_url',
+						'image_url' => array(
+							'url' => $image_url,
+						),
+					),
+				),
+			),
+		),
+		'max_tokens' => 1000
+	);
 
     // Log the request body for debugging
     error_log('AI Art - Body: ' . json_encode($body_array));
