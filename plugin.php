@@ -58,40 +58,52 @@ function ai_descriptions_generated_admin_notice() {
 
 // generate_ai_art_description function
 function generate_ai_art_description($product_id, $override_role_check = false) {
+    error_log('AI Art - Starting description generation for product ID: ' . $product_id);
+
     $product = wc_get_product($product_id);
-	
-	// Get and sanitize the product title
+
+    if (!$product) {
+        error_log('AI Art - Failed to retrieve product for ID: ' . $product_id);
+        return false;
+    }
+
+    // Get and sanitize the product title
     $product_title = sanitize_text_field($product->get_name());
-    
+
     // Get the author ID using get_post_field()
     $author_id = get_post_field('post_author', $product_id);
-
     if (!$author_id) {
-        error_log('Could not retrieve author ID for product ID ' . $product_id);
+        error_log('AI Art - Could not retrieve author ID for product ID ' . $product_id);
         return false;
     }
 
     $user = get_userdata($author_id);
-
     if (!$user) {
-        error_log('Could not retrieve user data for author ID ' . $author_id);
+        error_log('AI Art - Could not retrieve user data for author ID ' . $author_id);
         return false;
     }
 
-    if (!$override_role_check && !in_array('ai-premium', $user->roles)) {
+    if (!$override_role_check && !in_array('ai-premium', $user->roles) && !current_user_can('manage_options')) {
+        error_log('AI Art - User does not have the required role for product ID ' . $product_id);
         return false; // Exit if the user doesn't have the 'ai-premium' role and override is not allowed
     }
 
     $image_id = $product->get_image_id();
     $image_url = wp_get_attachment_url($image_id);
-
     if (!$image_url) {
-        error_log('No image found for product ID ' . $product_id);
+        error_log('AI Art - No image found for product ID ' . $product_id);
         return false;
     }
 
-    // $api_key = OPENAI_API_KEY; // Securely stored
+    error_log('AI Art - Image URL: ' . $image_url);
+
+    // Assuming OPENAI_API_KEY is defined securely
     $api_key = get_option('ai_art_description_api_key');
+    if (!$api_key) {
+        error_log('AI Art - OpenAI API key is missing.');
+        return false;
+    }
+
     $api_url = 'https://api.openai.com/v1/chat/completions';
     $headers = array(
         'Content-Type'  => 'application/json',
@@ -123,7 +135,6 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
         'max_tokens' => 1000,
     );
 
-    // Log the request body for debugging
     error_log('AI Art - Body: ' . print_r($body_array, true));
 
     $response = wp_remote_post($api_url, array(
@@ -133,32 +144,33 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
     ));
 
     if (is_wp_error($response)) {
-        error_log('OpenAI API error: ' . $response->get_error_message());
+        error_log('AI Art - OpenAI API error: ' . $response->get_error_message());
         return false;
     }
 
     $response_body = wp_remote_retrieve_body($response);
     $result = json_decode($response_body, true);
 
-    // Log the response for debugging
     error_log('AI Art - Response: ' . print_r($result, true));
 
-    // Extract the AI-generated description
+    // Check if AI description is returned
     if (isset($result['choices'][0]['message']['content'])) {
         $ai_description = $result['choices'][0]['message']['content'];
 
         // Save the AI description to the ACF custom field 'ai_description'
         update_field('ai_description', $ai_description, $product_id);
 
+        error_log('AI Art - Successfully generated description for product ID ' . $product_id);
         return true;
     } elseif (isset($result['error'])) {
-        error_log('OpenAI API error: ' . $result['error']['message']);
+        error_log('AI Art - OpenAI API error: ' . $result['error']['message']);
         return false;
     } else {
-        error_log('OpenAI API did not return a description for product ID ' . $product_id);
+        error_log('AI Art - OpenAI API did not return a description for product ID ' . $product_id);
         return false;
     }
 }
+
 
 // ⚙️ ADD SETTINGS PAGE
 // Add a settings page to the WordPress admin menu
@@ -245,6 +257,32 @@ function ai_art_description_api_key_cb() {
     echo '<input type="text" name="ai_art_description_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
 }
 
+// Register the AJAX action for logged-in users
+add_action('wp_ajax_generate_ai_art_description_ajax', 'handle_ai_art_description_ajax');
+
+function handle_ai_art_description_ajax() {
+    // Check nonce for security
+    check_ajax_referer('generate-ai-description', 'security');
+
+    // Check user capability
+    if (!current_user_can('edit_product', $_POST['product_id'])) {
+        wp_send_json_error('You do not have permission to edit this product.');
+    }
+
+    // Sanitize the product ID
+    $product_id = intval($_POST['product_id']);
+
+    // Call the generate_ai_art_description function
+    $result = generate_ai_art_description($product_id);
+
+    if ($result) {
+        wp_send_json_success();
+    } else {
+        wp_send_json_error('Failed to generate AI description.');
+    }
+}
+
+
 add_action('add_meta_boxes', 'ai_art_description_meta_box');
 
 function ai_art_description_meta_box() {
@@ -291,7 +329,7 @@ function ai_art_description_meta_box_html($post) {
                 // Handle response
                 $('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
                 if (response.success) {
-                    $('#ai-description-status').text('AI Description generated successfully!');
+                    $('#ai-description-status').text('AI Description generated successfully! Refresh this page to see the new AI Description.');
                 } else {
                     $('#ai-description-status').text('Failed to generate AI description.');
                 }
