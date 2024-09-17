@@ -12,7 +12,7 @@ add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
 add_filter('bulk_actions-edit-product', 'register_generate_ai_description_bulk_action');
 
 function register_generate_ai_description_bulk_action($bulk_actions) {
-    $bulk_actions['generate_ai_description'] = __('Generate AI Descriptions', 'your-text-domain');
+	$bulk_actions['generate_ai_description'] = __('🤖 Generate AI Descriptions', 'your-text-domain');
     return $bulk_actions;
 }
 
@@ -56,11 +56,27 @@ function ai_descriptions_generated_admin_notice() {
     }
 }
 
-// Modify the generate_ai_art_description function
+// generate_ai_art_description function
 function generate_ai_art_description($product_id, $override_role_check = false) {
     $product = wc_get_product($product_id);
-    $author_id = $product->get_post_data()->post_author; // Updated to get_post()
+	
+	// Get and sanitize the product title
+    $product_title = sanitize_text_field($product->get_name());
+    
+    // Get the author ID using get_post_field()
+    $author_id = get_post_field('post_author', $product_id);
+
+    if (!$author_id) {
+        error_log('Could not retrieve author ID for product ID ' . $product_id);
+        return false;
+    }
+
     $user = get_userdata($author_id);
+
+    if (!$user) {
+        error_log('Could not retrieve user data for author ID ' . $author_id);
+        return false;
+    }
 
     if (!$override_role_check && !in_array('ai-premium', $user->roles)) {
         return false; // Exit if the user doesn't have the 'ai-premium' role and override is not allowed
@@ -74,41 +90,41 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
         return false;
     }
 
-    // Assuming OpenAI API supports image analysis via an image parameter
-    $api_key = OPENAI_API_KEY; // Securely stored
+    // $api_key = OPENAI_API_KEY; // Securely stored
+    $api_key = get_option('ai_art_description_api_key');
     $api_url = 'https://api.openai.com/v1/chat/completions';
     $headers = array(
         'Content-Type'  => 'application/json',
         'Authorization' => 'Bearer ' . $api_key,
     );
 
-    $prompt_text = "Describe the artwork in this image as it would be described in a gallery showroom.";
+    $prompt_text = "I'm uploading my artwork, " . $product_title . ", to an online gallery for millenials, but need your help writing the description. Please give me a classy description based on the image provided. Please limit your response to only the description alone in plain text so that I can just copy it and paste it into the gallery's online form. The description should be detailed and thurough. In consideration of the visually impared, assume the user cannot see the artwork.";
 
     // Construct the request body
-	$body_array = array(
-		'model' => 'gpt-4o',
-		'messages' => array(
-			array( // Wrap the message object in an array
-				'role' => 'user',
-				'content' => array(
-					array(
-						'type' => 'text',
-						'text' => $prompt_text,
-					),
-					array(
-						'type' => 'image_url',
-						'image_url' => array(
-							'url' => $image_url,
-						),
-					),
-				),
-			),
-		),
-		'max_tokens' => 1000
-	);
+    $body_array = array(
+        'model' => 'gpt-4o',
+        'messages' => array(
+            array(
+                'role' => 'user',
+                'content' => array(
+                    array(
+                        'type' => 'text',
+                        'text' => $prompt_text,
+                    ),
+                    array(
+                        'type' => 'image_url',
+                        'image_url' => array(
+                            'url' => $image_url,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        'max_tokens' => 1000,
+    );
 
     // Log the request body for debugging
-    error_log('AI Art - Body: ' . json_encode($body_array));
+    error_log('AI Art - Body: ' . print_r($body_array, true));
 
     $response = wp_remote_post($api_url, array(
         'headers' => $headers,
@@ -127,9 +143,13 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
     // Log the response for debugging
     error_log('AI Art - Response: ' . print_r($result, true));
 
-    if (isset($result['choices'][0]['text'])) {
-        $ai_description = sanitize_text_field($result['choices'][0]['text']);
-        update_post_meta($product_id, 'ai_description', $ai_description);
+    // Extract the AI-generated description
+    if (isset($result['choices'][0]['message']['content'])) {
+        $ai_description = $result['choices'][0]['message']['content'];
+
+        // Save the AI description to the ACF custom field 'ai_description'
+        update_field('ai_description', $ai_description, $product_id);
+
         return true;
     } elseif (isset($result['error'])) {
         error_log('OpenAI API error: ' . $result['error']['message']);
@@ -138,4 +158,146 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
         error_log('OpenAI API did not return a description for product ID ' . $product_id);
         return false;
     }
+}
+
+// ⚙️ ADD SETTINGS PAGE
+// Add a settings page to the WordPress admin menu
+add_action('admin_menu', 'ai_art_description_settings_page');
+
+function ai_art_description_settings_page() {
+    add_options_page(
+        '🤖 AI Art Description Settings', // Page title
+        '🤖 AI Art Description',          // Menu title
+        'manage_options',              // Capability required to access
+        'ai-art-description',          // Slug of the settings page
+        'ai_art_description_settings_page_html' // Callback function to render the page
+    );
+}
+
+// Render the settings page HTML
+function ai_art_description_settings_page_html() {
+    // Check if the user has the necessary capability
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    // Check if the settings have been updated and display a success message
+    if (isset($_GET['settings-updated'])) {
+        add_settings_error('ai_art_description_messages', 'ai_art_description_message', 'Settings Saved', 'updated');
+    }
+
+    // Show error/update messages
+    settings_errors('ai_art_description_messages');
+    ?>
+
+    <div class="wrap">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <form action="options.php" method="post">
+            <?php
+            // Output security fields for the settings page
+            settings_fields('ai_art_description');
+
+            // Output setting sections and their fields
+            do_settings_sections('ai-art-description');
+
+            // Output the save settings button
+            submit_button('Save Settings');
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
+add_action('admin_init', 'ai_art_description_settings_init');
+
+function ai_art_description_settings_init() {
+    // Register a new setting for the API key
+    register_setting('ai_art_description', 'ai_art_description_api_key');
+
+    // Add a new section to the settings page
+    add_settings_section(
+        'ai_art_description_section',        // Section ID
+        'API Settings',                      // Section title
+        'ai_art_description_section_cb',     // Callback function for section description
+        'ai-art-description'                 // Page slug
+    );
+
+    // Add a field to enter the API key
+    add_settings_field(
+        'ai_art_description_api_key_field',  // Field ID
+        'OpenAI API Key',                    // Field title
+        'ai_art_description_api_key_cb',     // Callback function to display the input field
+        'ai-art-description',                // Page slug
+        'ai_art_description_section'         // Section ID
+    );
+}
+
+// Callback function for the section description
+function ai_art_description_section_cb() {
+    echo '<p>Enter your OpenAI API key to enable description generation.</p>';
+}
+
+// Callback function for the API key input field
+function ai_art_description_api_key_cb() {
+    // Get the current value from the database
+    $api_key = get_option('ai_art_description_api_key');
+    // Render the input field
+    echo '<input type="text" name="ai_art_description_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
+}
+
+add_action('add_meta_boxes', 'ai_art_description_meta_box');
+
+function ai_art_description_meta_box() {
+    add_meta_box(
+        'ai_art_description_meta',          // ID of the meta box
+        '🤖 Generate AI Description',       // Title of the meta box
+        'ai_art_description_meta_box_html', // Callback function to render the meta box content
+        'product',                          // Post type (for WooCommerce products)
+        'side',                             // Location (side panel)
+        'high'                              // Priority
+    );
+}
+
+// Callback function to display the button in the meta box
+function ai_art_description_meta_box_html($post) {
+    ?>
+    <div id="ai-description-box" style="text-align: right;">
+		<p style="text-align: left;">
+			Click the Generate button to get a new AI Art Description. This will replace whatever is currently in your AI Art Description field.
+		</p>
+        <button id="generate-ai-description" class="button button-primary">
+            <?php esc_html_e('Generate AI Description', 'your-text-domain'); ?>
+        </button>
+        <p id="ai-description-status"></p>
+    </div>
+
+    <script type="text/javascript">
+    jQuery(document).ready(function($) {
+        $('#generate-ai-description').on('click', function(e) {
+            e.preventDefault();
+
+            // Disable button and show loading message
+            $('#generate-ai-description').attr('disabled', 'disabled').text('Generating...');
+            $('#ai-description-status').text('');
+
+            // Send AJAX request
+            var data = {
+                action: 'generate_ai_art_description_ajax',
+                product_id: <?php echo $post->ID; ?>,
+                security: '<?php echo wp_create_nonce('generate-ai-description'); ?>'
+            };
+
+            $.post(ajaxurl, data, function(response) {
+                // Handle response
+                $('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
+                if (response.success) {
+                    $('#ai-description-status').text('AI Description generated successfully!');
+                } else {
+                    $('#ai-description-status').text('Failed to generate AI description.');
+                }
+            });
+        });
+    });
+    </script>
+    <?php
 }
