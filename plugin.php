@@ -8,6 +8,15 @@ Author: Sterling Digital
 
 add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
 
+// Function to replace placeholders dynamically
+function replace_placeholders( $prompt, $product_title, $author_name, $category_name ) {
+    return str_replace(
+        array('{artwork_title}', '{artist_name}', '{artwork_category}'), 
+        array($product_title, $author_name, $category_name), 
+        $prompt
+    );
+}
+
 /*
  * Generate_ai_art_description function
  */
@@ -22,20 +31,35 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	return false;
 	}
 
-	// Get and sanitize the product title
+	// Get contextual variables
 	$product_title = sanitize_text_field($product->get_name());
+	$author_name = get_the_author_meta('display_name', $product->get_post_data()->post_author);
+	$product_categories = wp_get_post_terms( $product_id, 'product_cat' );
+
+	// Check if the product has categories and assign the first category to a variable
+	if ( ! is_wp_error( $product_categories ) && ! empty( $product_categories ) ) {
+		$first_category = $product_categories[0]; // Assign the first category term object
+		$category_name = $first_category->name;   // Get the name of the category
+		$category_slug = $first_category->slug;   // Get the slug of the category
+		$category_id = $first_category->term_id;  // Get the ID of the category
+	} else {
+		$category_name = 'Art'; // Fallback if no category is found
+	}
+
 	
 	// Retrieve the custom prompt from the settings
-	$custom_prompt = get_option('ai_art_description_prompt', 'Describe this image in detail to the visually impaired.');
+	$prompt_context = get_option('ai_art_description_context', 'Describe this image in detail to the visually impaired.');
+	$prompt_serp = get_option('ai_art_description_serp', 'Describe this image in detail to the visually impaired.');
+	$prompt_excerpt = get_option('ai_art_description_excerpt', 'Describe this image in detail to the visually impaired.');
+	$prompt_facebook = get_option('ai_art_description_facebook', 'Describe this image in detail to the visually impaired.');
+	$prompt_twitter = get_option('ai_art_description_twitter', 'Describe this image in detail to the visually impaired.');
 	
 	// Replace placeholders with actual values
-	$author_name = get_the_author_meta('display_name', $product->get_post_data()->post_author);
-	/*$prompt_text = str_replace(
-		array('{artwork_title}', '{artist_name}'), 
-		array($product_title, $author_name), 
-		$custom_prompt
-	);*/
-	$prompt_text = 'Please see attached. My name is ' . $author_name . ', creator of ' . $product_title . '. I\'m uploading my art to an online gallery and I need a few variations of descriptions. First, I need a classy description to appear on the piece\'s web page. In consideration of the visually impaired, please write the classy description assuming the user cannot see the art. Second, I need an SEO friendly description appropriate for Rich Snippets. Third, I need a social media preview description that will be seen whenever a link to the piece is shared on facebook. Finally, I need copy for a tweet promoting the piece with hashtags. In all cases, please respond in plain text without linebreaks so that I can just copy and paste it as-is.';
+	$dynamic_context = replace_placeholders($prompt_context, $product_title, $author_name, $category_name);
+	$dynamic_serp  = replace_placeholders($prompt_serp, $product_title, $author_name, $category_name);
+	$dynamic_excerpt = replace_placeholders($prompt_excerpt, $product_title, $author_name, $category_name);
+	$dynamic_twitter  = replace_placeholders($prompt_twitter, $product_title, $author_name, $category_name);
+	$dynamic_facebook = replace_placeholders($prompt_facebook, $product_title, $author_name, $category_name);
 
 	// Get the author ID using get_post_field()
 	$author_id = get_post_field('post_author', $product_id);
@@ -86,7 +110,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 				'content' => array(
 					array(
 						'type' => 'text',
-						'text' => $prompt_text,
+						'text' => $dynamic_context,
 					),
 					array(
 						'type' => 'image_url',
@@ -104,27 +128,27 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 				'schema' => array(
 					'type' => 'object',
 					'properties' => array(
-						'classy_description' => array(
+						'wordpress_excerpt' => array(
 							'type' => 'string',
-							'description' => 'Describe this art in a classy manner for the blind.',
+							'description' => $dynamic_excerpt,
 						),
-						'rich_snippet_description' => array(
+						'short_serp_sentence' => array(
 							'type' => 'string',
-							'description' => 'Describe this art in short rich-snippet for SERPs.',
+							'description' => $dynamic_serp,
 						),
-						'social_share_preview_description' => array(
+						'shared_link_preview' => array(
 							'type' => 'string',
-							'description' => 'Describe this art in a sentence for social media link-share previews.',
+							'description' => $dynamic_facebook,
 						),
-						'tweet_description' => array(
+						'post_with_hashtags' => array(
 							'type' => 'string',
-							'description' => 'Describe this art in a tweet with hashtags.',
+							'description' => $dynamic_twitter,
 						),
 					),
 				),
 			),
 		),
-		'max_tokens' => 1000,
+		'max_tokens' => 5000,
 	);
 	
 	error_log('AI Art - Body: ' . print_r($body_array, true));
@@ -152,11 +176,11 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 		$descriptions = json_decode( $ai_description, true );
 		
 		// Check if classy_description exists in the decoded array
-		if ( isset( $descriptions['classy_description'] ) ) {
+		if ( isset( $descriptions['wordpress_excerpt'] ) ) {
 			// Prepare the post data to update the excerpt
 			$post_data = array(
                 'ID'           => $post_id,
-                'post_excerpt' => wp_strip_all_tags( $descriptions['classy_description'] ), // Sanitize the description
+                'post_excerpt' => wp_strip_all_tags( $descriptions['wordpress_excerpt'] ), // Sanitize the description
             );
 
 			// Update the post with the classy_description as the excerpt
@@ -164,18 +188,18 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 		}
 
 		 // Save rich_snippet_description as rank_math_description
-        if ( isset( $descriptions['rich_snippet_description'] ) ) {
-            update_post_meta( $post_id, 'rank_math_description', wp_strip_all_tags( $descriptions['rich_snippet_description'] ) );
+        if ( isset( $descriptions['short_serp_sentence'] ) ) {
+            update_post_meta( $post_id, 'rank_math_description', wp_strip_all_tags( $descriptions['short_serp_sentence'] ) );
         }
 
         // Save social_share_preview_description as rank_math_facebook_description
         if ( isset( $descriptions['social_share_preview_description'] ) ) {
-            update_post_meta( $post_id, 'rank_math_facebook_description', wp_strip_all_tags( $descriptions['social_share_preview_description'] ) );
+            update_post_meta( $post_id, 'rank_math_facebook_description', wp_strip_all_tags( $descriptions['shared_link_preview'] ) );
         }
 
         // Save tweet_description as rank_math_twitter_description
         if ( isset( $descriptions['tweet_description'] ) ) {
-            update_post_meta( $post_id, 'rank_math_twitter_description', wp_strip_all_tags( $descriptions['tweet_description'] ) );
+            update_post_meta( $post_id, 'rank_math_twitter_description', wp_strip_all_tags( $descriptions['post_with_hashtags'] ) );
         }
 		
 		// Save the AI description to the ACF custom field 'ai_description'
@@ -370,8 +394,12 @@ function chatgpt_model_cb() {
 add_action('admin_init', 'ai_art_description_prompt_setting_init');
 
 function ai_art_description_prompt_setting_init() {
-	// Register a new setting for the prompt
-	register_setting('ai_art_description', 'ai_art_description_prompt');
+	// Register settings for the prompt
+	register_setting('ai_art_description', 'ai_art_description_context');
+	register_setting('ai_art_description', 'ai_art_description_excerpt');
+	register_setting('ai_art_description', 'ai_art_description_serp');
+	register_setting('ai_art_description', 'ai_art_description_facebook');
+	register_setting('ai_art_description', 'ai_art_description_twitter');
 	
 	// Add a new section to the settings page if not already done
 	add_settings_section(
@@ -381,11 +409,47 @@ function ai_art_description_prompt_setting_init() {
 		'ai-art-description'                    // Page slug
 	);
 	
-	// Add a field to customize the AI prompt
+	// Add a field to customize the Context prompt
+	add_settings_field(
+		'ai_art_description_context_field',      // Field ID
+		'Context',                              // Field title
+		'ai_art_description_context_cb',         // Callback function to display the input field
+		'ai-art-description',                   // Page slug
+		'ai_art_description_prompt_section'     // Section ID
+	);
+
+	// Add a field to customize the Excerpt prompt
+	add_settings_field(
+		'ai_art_description_excerpt_field',      // Field ID
+		'Website Excerpt',                      // Field title
+		'ai_art_description_excerpt_cb',         // Callback function to display the input field
+		'ai-art-description',                   // Page slug
+		'ai_art_description_prompt_section'     // Section ID
+	);
+
+	// Add a field to customize the Google prompt
+	add_settings_field(
+		'ai_art_description_serp_field',      // Field ID
+		'Rank Math: Search Engine Results Page', // Field title
+		'ai_art_description_serp_cb',           // Callback function to display the input field
+		'ai-art-description',                   // Page slug
+		'ai_art_description_prompt_section'     // Section ID
+	);
+
+	// Add a field to customize the Preview prompt
 	add_settings_field(
 		'ai_art_description_prompt_field',      // Field ID
-		'Custom AI Prompt',                     // Field title
-		'ai_art_description_prompt_cb',         // Callback function to display the input field
+		'Rank Math: Facebook Share',            // Field title
+		'ai_art_description_facebook_cb',       // Callback function to display the input field
+		'ai-art-description',                   // Page slug
+		'ai_art_description_prompt_section'     // Section ID
+	);
+
+	// Add a field to customize the Post prompt
+	add_settings_field(
+		'ai_art_description_twitter_field',      // Field ID
+		'Rank Math: Twitter Post',                     // Field title
+		'ai_art_description_twitter_cb',         // Callback function to display the input field
 		'ai-art-description',                   // Page slug
 		'ai_art_description_prompt_section'     // Section ID
 	);
@@ -393,14 +457,47 @@ function ai_art_description_prompt_setting_init() {
 
 // Callback function for the section description
 function ai_art_description_prompt_section_cb() {
-	echo '<p>Customize the AI prompt used for generating descriptions. Available placeholders include {artwork_title} and {artist_name}.</p><h3>Example prompt:</h3><p><i>I\'m uploading my artwork, "{artwork_title} by {artist_name}", to an online gallery for Millennials, but need your help writing the description. Please give me a classy description based on the image provided. Please limit your response to only the description alone in plain text so that I can just copy it and paste it into the gallery\'s online form. The description should be detailed and thorough. In consideration of the visually impaired, assume the user cannot see the artwork.</i></p>';
+	echo '<p>Customize the AI prompt used for generating descriptions. Available placeholders include:<b> {artwork_title}, {artwork_category}, {artist_name}</b>.</p>';
 }
 
 // Callback function for the prompt input field
-function ai_art_description_prompt_cb() {
+function ai_art_description_context_cb() {
+	echo '<p>Give ChatGPT context about the piece.</p>';
 	// Get the current prompt value from the database
-	$prompt = get_option('ai_art_description_prompt', 'I\'m uploading my artwork, {product_title}, to an online gallery...');
-	echo '<textarea name="ai_art_description_prompt" rows="6" cols="50" class="large-text">' . esc_textarea($prompt) . '</textarea>';
+	$prompt_context = get_option('ai_art_description_context', 'Give a classy description of the artwork entitled {artwork_title} for the visually impaired. Please give all responses in plain text with no line-breaks so that I can just copy and paste it where I need.');
+	echo '<textarea name="ai_art_description_context" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_context) . '</textarea>';
+}
+
+// Callback function for the prompt input field
+function ai_art_description_excerpt_cb() {
+	echo '<p>This excerpt is used within Wordpress and WooCommerce.</p>';
+	// Get the current prompt value from the database
+	$prompt_excerpt = get_option('ai_art_description_excerpt', 'Briefly describe this artwork in the form of a Wordpress Post Excerpt.');
+	echo '<textarea name="ai_art_description_excerpt" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_excerpt) . '</textarea>';
+}
+
+// Callback function for the prompt input field
+function ai_art_description_serp_cb() {
+	echo '<p>This appears on SERPs (Google searches).</p>';
+	// Get the current prompt value from the database
+	$prompt_serp = get_option('ai_art_description_serp', 'Describe this artwork in an extremely short Rank Math SERP sentence. The sentence needs to be able to display on the SERP page without getting cut off.');
+	echo '<textarea name="ai_art_description_serp" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_serp) . '</textarea>';
+}
+
+// Callback function for the prompt input field
+function ai_art_description_facebook_cb() {
+	echo '<p>This appears as a preview when a link is shared on social media.</p>';
+	// Get the current prompt value from the database
+	$prompt_facebook = get_option('ai_art_description_facebook', 'Write a short sentence describing this artwork for Rank Math\'s Facebook share field.');
+	echo '<textarea name="ai_art_description_facebook" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_facebook) . '</textarea>';
+}
+
+// Callback function for the prompt input field
+function ai_art_description_twitter_cb() {
+	echo '<p>This would be useful as a social media post, like on Twitter or LinkedIn.</p>';
+	// Get the current prompt value from the database
+	$prompt_twitter = get_option('ai_art_description_twitter', 'Write a tweet about this artwork, including hashtags.');
+	echo '<textarea name="ai_art_description_twitter" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_twitter) . '</textarea>';
 }
 
 /*
