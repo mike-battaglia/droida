@@ -2,7 +2,7 @@
 /*
 Plugin Name: AI Art Description
 Description: Generates AI descriptions for artworks upon product publishing.
-Version: 1.0
+Version: 1.1
 Author: Sterling Digital
 */
 
