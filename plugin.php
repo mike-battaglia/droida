@@ -2,7 +2,7 @@
 /*
 Plugin Name: AI Art Description
 Description: Generates AI descriptions for artworks upon product publishing.
-Version: 1.1
+Version: 1.0
 Author: Sterling Digital
 */
 
@@ -543,44 +543,116 @@ function ai_art_description_meta_box() {
 
 // Callback function to display the button in the meta box
 function ai_art_description_meta_box_html($post) {
-	?>
-	<div id="ai-description-box" style="text-align: right;">
-		<p style="text-align: left;">
-			Click the Generate button to get a new AI Art Description. This will replace whatever is currently in your AI Art Description field.
-		</p>
-		<button id="generate-ai-description" class="button button-primary">
-			<?php esc_html_e('Generate AI Description', 'your-text-domain'); ?>
-		</button>
-		<p id="ai-description-status"></p>
-	</div>
-	
-	<script type="text/javascript">
-		jQuery(document).ready(function($) {
-			$('#generate-ai-description').on('click', function(e) {
-				e.preventDefault();
-				
-				// Disable button and show loading message
-				$('#generate-ai-description').attr('disabled', 'disabled').text('Generating...');
-				$('#ai-description-status').text('');
-				
-				// Send AJAX request
-				var data = {
-					action: 'generate_ai_art_description_ajax',
-					product_id: <?php echo $post->ID; ?>,
-					security: '<?php echo wp_create_nonce('generate-ai-description'); ?>'
-				};
-				
-				$.post(ajaxurl, data, function(response) {
-					// Handle response
-					$('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
-					if (response.success) {
-						$('#ai-description-status').text('AI Description generated successfully! Refresh this page to see the new AI Description.');
-					} else {
-						$('#ai-description-status').text('Failed to generate AI description.');
-					}
-				});
-			});
-		});
-	</script>
-	<?php
+    // Get the product image URL
+    $product_image_url = get_the_post_thumbnail_url($post->ID, 'full'); // Gets the full-sized product image
+
+    ?>
+    <div id="ai-description-box" style="text-align: right;">
+        <p style="text-align: left;">
+            Click the Generate button to get a new AI Art Description. This will replace whatever is currently in your AI Art Description field.
+        </p>
+        <button id="generate-ai-description" class="button button-primary">
+            <?php esc_html_e('Generate AI Description', 'your-text-domain'); ?>
+        </button>
+        <p id="ai-description-status"></p>
+    </div>
+
+    <!-- Loader Overlay -->
+    <div id="ai-description-loader">
+		<div class="loader-text">
+			<h2>
+				Generating AI descriptions for search engines and social media...
+			</h2>
+		</div>
+        <div class="ai-loader-content">
+          	<div class="loader"></div>
+		</div>
+    </div>
+
+	<style>
+		/* Loader overlay styles */
+		#ai-description-loader {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white background */
+			z-index: 9999; /* On top of everything */
+			display: flex;
+			flex-direction: column;
+			justify-content: center!important;
+			align-items: center!important;
+		}
+
+		.ai-loader-content {
+			background-image: url("<?php echo esc_url($product_image_url); ?>");
+			background-size: cover;      
+		}
+
+		/*Animation Imported*/
+		.loader {
+			width: 300px;
+			height: 300px;
+			border: 1px solid #f00;
+			box-sizing: border-box;
+			border-radius: 50%;
+			display: grid;
+			animation: l11 7s infinite linear;
+			transform-origin: 50% 80%;
+		}
+		
+		.loader:before,
+		.loader:after {
+			content: "";
+			grid-area: 1/1;
+			border: inherit;
+			border-radius: 50%;
+			animation: inherit;
+			animation-duration: 3s;
+			transform-origin: inherit;
+		}
+		
+		.loader:after {
+			--s:-1;
+		}
+		
+		@keyframes l11 {
+			100% {transform:rotate(calc(var(--s,1)*1turn))}
+		}
+	</style>
+
+    <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            $('#generate-ai-description').on('click', function(e) {
+                e.preventDefault();
+
+                // Disable button and show loader overlay
+                $('#generate-ai-description').attr('disabled', 'disabled').text('Generating...');
+                $('#ai-description-status').text('');
+                $('#ai-description-loader').fadeIn(); // Show loader
+
+                // Send AJAX request
+                var data = {
+                    action: 'generate_ai_art_description_ajax',
+                    product_id: <?php echo $post->ID; ?>,
+                    security: '<?php echo wp_create_nonce('generate-ai-description'); ?>'
+                };
+
+                $.post(ajaxurl, data, function(response) {
+                    // Hide loader when response is received
+                    $('#ai-description-loader').fadeOut();
+
+                    // Handle response
+                    $('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
+                    if (response.success) {
+                        $('#ai-description-status').text('AI Description generated successfully! Refresh this page to see the new AI Description.');
+                    } else {
+                        $('#ai-description-status').text('Failed to generate AI description.');
+                    }
+                });
+            });
+        });
+    </script>
+    <?php
 }
