@@ -29,11 +29,12 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	
 	// Replace placeholders with actual values
 	$author_name = get_the_author_meta('display_name', $product->get_post_data()->post_author);
-	$prompt_text = str_replace(
+	/*$prompt_text = str_replace(
 		array('{artwork_title}', '{artist_name}'), 
 		array($product_title, $author_name), 
 		$custom_prompt
-	);
+	);*/
+	$prompt_text = 'Please see attached. My name is ' . $author_name . ', creator of ' . $product_title . '. I\'m uploading my art to an online gallery and I need a few variations of descriptions. First, I need a classy description to appear on the piece\'s web page. In consideration of the visually impaired, please write the classy description assuming the user cannot see the art. Second, I need an SEO friendly description appropriate for Rich Snippets. Third, I need a social media preview description that will be seen whenever a link to the piece is shared on facebook. Finally, I need copy for a tweet promoting the piece with hashtags. In all cases, please respond in plain text without linebreaks so that I can just copy and paste it as-is.';
 
 	// Get the author ID using get_post_field()
 	$author_id = get_post_field('post_author', $product_id);
@@ -77,24 +78,51 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	
 	// Construct the request body
 	$body_array = array(
-		'model' => 'gpt-4o',
-			'messages' => array(
-				array(
-					'role' => 'user',
-					'content' => array(
-						array(
-							'type' => 'text',
-							'text' => $prompt_text,
-						),
-						array(
-							'type' => 'image_url',
-							'image_url' => array(
-								'url' => $image_url,
-							),
+		'model' => 'gpt-4o-mini',
+		'messages' => array(
+			array(
+				'role' => 'user',
+				'content' => array(
+					array(
+						'type' => 'text',
+						'text' => $prompt_text,
+					),
+					array(
+						'type' => 'image_url',
+						'image_url' => array(
+							'url' => $image_url,
 						),
 					),
 				),
 			),
+		),
+		'response_format' => array(
+			'type' => 'json_schema',
+			'json_schema' => array(
+				'name' => 'artwork_descriptions',
+				'schema' => array(
+					'type' => 'object',
+					'properties' => array(
+						'classy_description' => array(
+							'type' => 'string',
+							'description' => 'Describe this art in a classy manner for the blind.',
+						),
+						'rich_snippet_description' => array(
+							'type' => 'string',
+							'description' => 'Describe this art in short rich-snippet for SERPs.',
+						),
+						'social_share_preview_description' => array(
+							'type' => 'string',
+							'description' => 'Describe this art in a sentence for social media link-share previews.',
+						),
+						'tweet_description' => array(
+							'type' => 'string',
+							'description' => 'Describe this art in a tweet with hashtags.',
+						),
+					),
+				),
+			),
+		),
 		'max_tokens' => 1000,
 	);
 	
@@ -113,6 +141,13 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	
 	$response_body = wp_remote_retrieve_body($response);
 	$result = json_decode($response_body, true);
+	
+	// Apply str_replace recursively if $result is an array
+	array_walk_recursive($result, function (&$item) {
+		if (is_string($item)) {
+			$item = str_replace(array("\n", "\r", "\t"), '', $item);
+		}
+	});
 	
 	error_log('AI Art - Response: ' . print_r($result, true));
 	
