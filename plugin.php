@@ -2,7 +2,7 @@
 /*
 Plugin Name: AI Art Description
 Description: Generates AI descriptions for artworks upon product publishing.
-Version: 1.2
+Version: 1.3
 Author: Sterling Digital
 */
 
@@ -129,7 +129,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 				'schema' => array(
 					'type' => 'object',
 					'properties' => array(
-						'wordpress_excerpt' => array(
+						'gallery_description' => array(
 							'type' => 'string',
 							'description' => $dynamic_excerpt,
 						),
@@ -177,11 +177,11 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 		$descriptions = json_decode( $ai_description, true );
 		
 		// Check if classy_description exists in the decoded array
-		if ( isset( $descriptions['wordpress_excerpt'] ) ) {
+		if ( isset( $descriptions['gallery_description'] ) ) {
 			// Prepare the post data to update the excerpt
 			$post_data = array(
                 'ID'           => $post_id,
-                'post_excerpt' => wp_strip_all_tags( $descriptions['wordpress_excerpt'] ), // Sanitize the description
+                'post_excerpt' => wp_strip_all_tags( $descriptions['gallery_description'] ), // Sanitize the description
             );
 
 			// Update the post with the classy_description as the excerpt
@@ -194,12 +194,12 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
         }
 
         // Save social_share_preview_description as rank_math_facebook_description
-        if ( isset( $descriptions['social_share_preview_description'] ) ) {
+        if ( isset( $descriptions['shared_link_preview'] ) ) {
             update_post_meta( $post_id, 'rank_math_facebook_description', wp_strip_all_tags( $descriptions['shared_link_preview'] ) );
         }
 
         // Save tweet_description as rank_math_twitter_description
-        if ( isset( $descriptions['tweet_description'] ) ) {
+        if ( isset( $descriptions['post_with_hashtags'] ) ) {
             update_post_meta( $post_id, 'rank_math_twitter_description', wp_strip_all_tags( $descriptions['post_with_hashtags'] ) );
         }
 		
@@ -422,7 +422,7 @@ function ai_art_description_prompt_setting_init() {
 	// Add a field to customize the Excerpt prompt
 	add_settings_field(
 		'ai_art_description_excerpt_field',      // Field ID
-		'Website Excerpt',                      // Field title
+		'Gallery Excerpt',                      // Field title
 		'ai_art_description_excerpt_cb',         // Callback function to display the input field
 		'ai-art-description',                   // Page slug
 		'ai_art_description_prompt_section'     // Section ID
@@ -567,6 +567,11 @@ function ai_art_description_meta_box_html($post) {
 		</div>
         <div class="ai-loader-content">
           	<div class="loader"></div>
+		</div>
+		<div class="loader-text">
+			<h2>
+				This usually takes less than a minute.
+			</h2>
 		</div>
     </div>
 
