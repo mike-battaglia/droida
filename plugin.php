@@ -116,6 +116,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 						'type' => 'image_url',
 						'image_url' => array(
 							'url' => $image_url,
+							'detail' => 'high',
 						),
 					),
 				),
@@ -148,7 +149,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 				),
 			),
 		),
-		'max_tokens' => 5000,
+		'max_tokens' => 1000,
 	);
 	
 	error_log('AI Art - Body: ' . print_r($body_array, true));
@@ -156,7 +157,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	$response = wp_remote_post($api_url, array(
 		'headers' => $headers,
 		'body'    => json_encode($body_array),
-		'timeout' => 60,
+		'timeout' => 120,
 	));
 	
 	if (is_wp_error($response)) {
@@ -549,7 +550,7 @@ function ai_art_description_meta_box_html($post) {
     ?>
     <div id="ai-description-box" style="text-align: right;">
         <p style="text-align: left;">
-            Click the Generate button to get a new AI Art Description. This will replace whatever is currently in your AI Art Description field.
+            Click the Generate button to get a new AI-vision descriptions for SEO and social media sharing. This will replace whatever is currently in your SEO and social media fields.
         </p>
         <button id="generate-ai-description" class="button button-primary">
             <?php esc_html_e('Generate AI Description', 'your-text-domain'); ?>
@@ -644,16 +645,19 @@ function ai_art_description_meta_box_html($post) {
                 };
 
                 $.post(ajaxurl, data, function(response) {
-                    // Hide loader when response is received
-                    $('#ai-description-loader').fadeOut();
+					// Hide loader when response is received
+					$('#ai-description-loader').fadeOut();
 
-                    // Handle response
-                    $('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
-                    if (response.success) {
-                        $('#ai-description-status').text('AI Description generated successfully! Refresh this page to see the new AI Description.');
-                    } else {
-                        $('#ai-description-status').text('Failed to generate AI description.');
-                    }
+					// Handle response
+					$('#generate-ai-description').removeAttr('disabled').text('Generate AI Description');
+					if (response.success) {
+						$('#ai-description-status').text('AI Description generated successfully! Refreshing the page...');
+						setTimeout(function() {
+							window.location.reload(); // Reload the page on success
+						}, 2000); // Optional delay before reloading (2 seconds)
+					} else {
+						$('#ai-description-status').text('Failed to generate AI description.');
+					}
                 });
             });
         });
