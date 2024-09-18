@@ -15,6 +15,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	error_log('AI Art - Starting description generation for product ID: ' . $product_id);
 	
 	$product = wc_get_product($product_id);
+	$post_id = $product->get_id();
 	
 	if (!$product) {
 	error_log('AI Art - Failed to retrieve product for ID: ' . $product_id);
@@ -78,7 +79,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	
 	// Construct the request body
 	$body_array = array(
-		'model' => 'gpt-4o-2024-08-06',
+		'model' => 'gpt-4o-mini',
 		'messages' => array(
 			array(
 				'role' => 'user',
@@ -142,18 +143,40 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	$response_body = wp_remote_retrieve_body($response);
 	$result = json_decode($response_body, true);
 	
-	// Apply str_replace recursively if $result is an array
-	array_walk_recursive($result, function (&$item) {
-		if (is_string($item)) {
-			$item = str_replace(array("\n", "\r", "\t"), '', $item);
-		}
-	});
-	
 	error_log('AI Art - Response: ' . print_r($result, true));
 	
 	// Check if AI description is returned
 	if (isset($result['choices'][0]['message']['content'])) {
 		$ai_description = $result['choices'][0]['message']['content'];
+		
+		$descriptions = json_decode( $ai_description, true );
+		
+		// Check if classy_description exists in the decoded array
+		if ( isset( $descriptions['classy_description'] ) ) {
+			// Prepare the post data to update the excerpt
+			$post_data = array(
+                'ID'           => $post_id,
+                'post_excerpt' => wp_strip_all_tags( $descriptions['classy_description'] ), // Sanitize the description
+            );
+
+			// Update the post with the classy_description as the excerpt
+			wp_update_post( $post_data );
+		}
+
+		 // Save rich_snippet_description as rank_math_description
+        if ( isset( $descriptions['rich_snippet_description'] ) ) {
+            update_post_meta( $post_id, 'rank_math_description', wp_strip_all_tags( $descriptions['rich_snippet_description'] ) );
+        }
+
+        // Save social_share_preview_description as rank_math_facebook_description
+        if ( isset( $descriptions['social_share_preview_description'] ) ) {
+            update_post_meta( $post_id, 'rank_math_facebook_description', wp_strip_all_tags( $descriptions['social_share_preview_description'] ) );
+        }
+
+        // Save tweet_description as rank_math_twitter_description
+        if ( isset( $descriptions['tweet_description'] ) ) {
+            update_post_meta( $post_id, 'rank_math_twitter_description', wp_strip_all_tags( $descriptions['tweet_description'] ) );
+        }
 		
 		// Save the AI description to the ACF custom field 'ai_description'
 		update_field('ai_description', $ai_description, $product_id);
