@@ -78,7 +78,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 	
 	// Construct the request body
 	$body_array = array(
-		'model' => 'gpt-4o-mini',
+		'model' => 'gpt-4o-2024-08-06',
 		'messages' => array(
 			array(
 				'role' => 'user',
