@@ -2,7 +2,7 @@
 /*
 Plugin Name: AI Art Description
 Description: Generates AI descriptions for artworks upon product publishing.
-Version: 1.0
+Version: 1.2
 Author: Sterling Digital
 */
 
@@ -558,7 +558,7 @@ function ai_art_description_meta_box_html($post) {
     </div>
 
     <!-- Loader Overlay -->
-    <div id="ai-description-loader">
+    <div id="ai-description-loader" style="display: none">
 		<div class="loader-text">
 			<h2>
 				Generating AI descriptions for search engines and social media...
@@ -591,34 +591,38 @@ function ai_art_description_meta_box_html($post) {
 		}
 
 		/*Animation Imported*/
+		/* HTML: <div class="loader"></div> */
 		.loader {
-			width: 300px;
-			height: 300px;
-			border: 1px solid #f00;
-			box-sizing: border-box;
-			border-radius: 50%;
-			display: grid;
-			animation: l11 7s infinite linear;
-			transform-origin: 50% 80%;
+		  width: 300px;
+		  aspect-ratio: 1;
+		  background:
+			linear-gradient(#000 0 0),
+			linear-gradient(#000 0 0),
+			linear-gradient(#000 0 0),
+			linear-gradient(#000 0 0),
+			linear-gradient(#ccc 0 0),
+			linear-gradient(#ccc 0 0),
+			linear-gradient(#f00 0 0),
+			linear-gradient(#f00 0 0);
+		  background-size: 25% 25%,25% 25%,25% 25%,25% 25%,25% 50%,25% 50%,50% 25%,50% 25%;
+		  background-repeat: no-repeat;
+		  animation: l20 1.5s infinite alternate;
 		}
-		
-		.loader:before,
-		.loader:after {
-			content: "";
-			grid-area: 1/1;
-			border: inherit;
-			border-radius: 50%;
-			animation: inherit;
-			animation-duration: 3s;
-			transform-origin: inherit;
-		}
-		
-		.loader:after {
-			--s:-1;
-		}
-		
-		@keyframes l11 {
-			100% {transform:rotate(calc(var(--s,1)*1turn))}
+		@keyframes l20 {
+		  0%,
+		  10%  {background-position: 
+					calc(1*100%/3) calc(1*100%/3),calc(2*100%/3) calc(1*100%/3),calc(1*100%/3) calc(2*100%/3),calc(2*100%/3) calc(2*100%/3),
+					calc(1*100%/3) 50%,calc(2*100%/3) 50%,50% calc(1*100%/3),50% calc(2*100%/3)}
+		  33%  {background-position: 
+					calc(0*100%/3) calc(0*100%/3),calc(3*100%/3) calc(0*100%/3),calc(0*100%/3) calc(3*100%/3),calc(3*100%/3) calc(3*100%/3),
+					calc(1*100%/3) 50%,calc(2*100%/3) 50%,50% calc(1*100%/3),50% calc(2*100%/3)}
+		  66%  {background-position: 
+					calc(0*100%/3) calc(0*100%/3),calc(3*100%/3) calc(0*100%/3),calc(0*100%/3) calc(3*100%/3),calc(3*100%/3) calc(3*100%/3),
+					calc(0*100%/3) 50%,calc(3*100%/3) 50%,50% calc(1*100%/3),50% calc(2*100%/3)}
+		  90%,
+		  100%  {background-position: 
+					calc(0*100%/3) calc(0*100%/3),calc(3*100%/3) calc(0*100%/3),calc(0*100%/3) calc(3*100%/3),calc(3*100%/3) calc(3*100%/3),
+					calc(0*100%/3) 50%,calc(3*100%/3) 50%,50% calc(0*100%/3),50% calc(3*100%/3)}
 		}
 	</style>
 
