@@ -314,6 +314,9 @@ function ai_art_description_settings_init() {
 	// Register a new setting for the API key
 	register_setting('ai_art_description', 'ai_art_description_api_key');
 	
+	// Register the setting for the GPT model
+	register_setting('ai_art_description', 'ai_description_gpt_model');
+
 	// Add a new section to the settings page
 	add_settings_section(
 		'ai_art_description_section',        // Section ID
@@ -330,19 +333,38 @@ function ai_art_description_settings_init() {
 		'ai-art-description',                // Page slug
 		'ai_art_description_section'         // Section ID
 	);
+
+	// Add a field to enter the Model
+	add_settings_field(
+		'chatgpt_model',  // Field ID
+		'ChatGPT Model',                    // Field title
+		'chatgpt_model_cb',    			    // Callback function to display the input field
+		'ai-art-description',               // Page slug
+		'ai_art_description_section'        // Section ID
+	);
 }
 
 // Callback function for the section description
 function ai_art_description_section_cb() {
-	echo '<p>Enter your OpenAI API key to enable description generation.</p>';
+	echo '<p>Configure the API call.</p>';
 }
 
 // Callback function for the API key input field
 function ai_art_description_api_key_cb() {
+	echo '<p>Enter your OpenAI API key to enable description generation.</p>';
 	// Get the current value from the database
 	$api_key = get_option('ai_art_description_api_key');
 	// Render the input field
 	echo '<input type="text" name="ai_art_description_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
+}
+
+// Callback function for the section description
+function chatgpt_model_cb() {
+	echo '<p>Enter the ChatGPT model in API format (example: gpt-4o-2024-08-06) .</p>';
+	// Get the current value from the database
+	$gpt_model = get_option('ai_description_gpt_model');
+	// Render the input field
+	echo '<input type="text" name="ai_description_gpt_model" value="' . esc_attr($gpt_model) . '" class="regular-text">';
 }
 
 add_action('admin_init', 'ai_art_description_prompt_setting_init');
