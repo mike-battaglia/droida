@@ -2,7 +2,7 @@
 /*
 Plugin Name: AI Art Description
 Description: Generates AI descriptions for artworks upon product publishing.
-Version: 1.3
+Version: 1.2
 Author: Sterling Digital
 */
 
@@ -101,9 +101,11 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 		'Authorization' => 'Bearer ' . $api_key,
 	);
 	
+	$gpt_model = get_option('ai_description_gpt_model');
+		
 	// Construct the request body
 	$body_array = array(
-		'model' => 'gpt-4o-mini',
+		'model' => $gpt_model,
 		'messages' => array(
 			array(
 				'role' => 'user',
@@ -111,6 +113,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 					array(
 						'type' => 'text',
 						'text' => $dynamic_context,
+						//'text' => 'echo "This is content"',
 					),
 					array(
 						'type' => 'image_url',
@@ -361,7 +364,7 @@ function ai_art_description_settings_init() {
 
 	// Add a field to enter the Model
 	add_settings_field(
-		'chatgpt_model',  // Field ID
+		'chatgpt_model',  					// Field ID
 		'ChatGPT Model',                    // Field title
 		'chatgpt_model_cb',    			    // Callback function to display the input field
 		'ai-art-description',               // Page slug
@@ -546,6 +549,7 @@ function ai_art_description_meta_box() {
 function ai_art_description_meta_box_html($post) {
     // Get the product image URL
     $product_image_url = get_the_post_thumbnail_url($post->ID, 'full'); // Gets the full-sized product image
+	
 
     ?>
     <div id="ai-description-box" style="text-align: right;">
@@ -600,7 +604,6 @@ function ai_art_description_meta_box_html($post) {
 		/* HTML: <div class="loader"></div> */
 		.loader {
 		  width: 300px;
-		  aspect-ratio: 1;
 		  background:
 			linear-gradient(#000 0 0),
 			linear-gradient(#000 0 0),
@@ -669,3 +672,35 @@ function ai_art_description_meta_box_html($post) {
     </script>
     <?php
 }
+
+function custom_function_on_new_product($new_status, $old_status, $post) {
+	error_log('New Product: 1 - Start');
+    // Check if the post type is 'product' and the new status is 'publish'
+    if ($post->post_type === 'product' && $new_status === 'publish') {
+        error_log('New Product: 2 - Is product, published.');
+		
+		// Retrieve the ACF field for the post
+		$ai_description = get_field('ai_description', $post->ID);
+		// Get the post's published date
+        $published_date = get_the_date('Y-m-d', $post);
+        // Get the current date
+        $current_date = current_time('Y-m-d');
+		// Get the post excerpt directly from the post object
+		$post_excerpt = $post->post_excerpt;
+		
+		if(empty($ai_description)) {
+	        error_log('New Product: 3 - AI Description is empty.');
+			if(empty($post_excerpt)){
+		        error_log('New Product: 4 - Excerpt is empty.');
+				if(($published_date == $current_date)){
+			        error_log('New Product: 5 - Published ' . $published_date . ', is now ' . $current_date . '.');
+					if(has_post_thumbnail( $post->ID)) {
+				        error_log('New Product: 6 - Do ai function.');
+            			generate_ai_art_description($post->ID); // Use $post->ID instead of $post_id
+					}
+				}
+			}
+		}
+	}
+}
+add_action('transition_post_status', 'custom_function_on_new_product', 10, 3);
