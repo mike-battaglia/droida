@@ -1,4 +1,4 @@
-<?
+<?php
 /*
  * Enable Bulk editing
  */
