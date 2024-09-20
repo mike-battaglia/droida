@@ -215,3 +215,13 @@ function ai_art_description_twitter_cb() {
 	$prompt_twitter = get_option('ai_art_description_twitter', 'Write a tweet about this artwork, including hashtags.');
 	echo '<textarea name="ai_art_description_twitter" rows="6" cols="50" class="large-text">' . esc_textarea($prompt_twitter) . '</textarea>';
 }
+
+// Function to replace placeholders dynamically
+function replace_placeholders( $prompt, $product_title, $author_name, $category_name ) {
+    return str_replace(
+        array('{artwork_title}', '{artist_name}', '{artwork_category}'), 
+        array($product_title, $author_name, $category_name), 
+        $prompt
+    );
+}
+
