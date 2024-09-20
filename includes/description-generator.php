@@ -1,4 +1,4 @@
-<?
+<?php
 /*
  * Generate_ai_art_description function
  */
