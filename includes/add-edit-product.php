@@ -1,4 +1,4 @@
-<?
+<?php
 /*
  * Add button to Product Edit page
  */
