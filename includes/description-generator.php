@@ -1,4 +1,7 @@
 <?php
+
+add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
+
 /*
  * Generate_ai_art_description function
  */
@@ -83,9 +86,11 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 		'Authorization' => 'Bearer ' . $api_key,
 	);
 	
+	$gpt_model = get_option('ai_description_gpt_model');
+		
 	// Construct the request body
 	$body_array = array(
-		'model' => 'gpt-4o-mini',
+		'model' => $gpt_model,
 		'messages' => array(
 			array(
 				'role' => 'user',
@@ -93,6 +98,7 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 					array(
 						'type' => 'text',
 						'text' => $dynamic_context,
+						//'text' => 'echo "This is content"',
 					),
 					array(
 						'type' => 'image_url',
@@ -198,15 +204,3 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 			return false;
 		}
 	}
-
-
-add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
-
-// Function to replace placeholders dynamically
-function replace_placeholders( $prompt, $product_title, $author_name, $category_name ) {
-    return str_replace(
-        array('{artwork_title}', '{artist_name}', '{artwork_category}'), 
-        array($product_title, $author_name, $category_name), 
-        $prompt
-    );
-}
