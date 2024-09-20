@@ -49,6 +49,8 @@ function ai_art_description_meta_box_html($post) {
     ?>
     <div id="ai-description-box" style="text-align: right;">
         <p style="text-align: left;">
+			<? echo('Short tag'); ?>
+			<?php echo('Long tag'); ?>
             Click the Generate button to get a new AI-vision descriptions for SEO and social media sharing. This will replace whatever is currently in your SEO and social media fields.
         </p>
         <button id="generate-ai-description" class="button button-primary">
