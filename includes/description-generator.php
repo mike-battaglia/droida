@@ -198,3 +198,15 @@ function generate_ai_art_description($product_id, $override_role_check = false) 
 			return false;
 		}
 	}
+
+
+add_action('woocommerce_new_product', 'generate_ai_art_description', 10, 1);
+
+// Function to replace placeholders dynamically
+function replace_placeholders( $prompt, $product_title, $author_name, $category_name ) {
+    return str_replace(
+        array('{artwork_title}', '{artist_name}', '{artwork_category}'), 
+        array($product_title, $author_name, $category_name), 
+        $prompt
+    );
+}
