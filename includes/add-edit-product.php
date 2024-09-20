@@ -44,6 +44,7 @@ function ai_art_description_meta_box() {
 function ai_art_description_meta_box_html($post) {
     // Get the product image URL
     $product_image_url = get_the_post_thumbnail_url($post->ID, 'full'); // Gets the full-sized product image
+	
 
     ?>
     <div id="ai-description-box" style="text-align: right;">
@@ -98,7 +99,6 @@ function ai_art_description_meta_box_html($post) {
 		/* HTML: <div class="loader"></div> */
 		.loader {
 		  width: 300px;
-		  aspect-ratio: 1;
 		  background:
 			linear-gradient(#000 0 0),
 			linear-gradient(#000 0 0),
